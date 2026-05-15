@@ -1,0 +1,63 @@
+categories:
+
+  clean:
+    - "What is the capital of France?"
+    - "Summarize the key features of Python 3.12."
+    - "Explain the difference between REST and GraphQL APIs."
+    - "What are best practices for conducting a code review?"
+    - "Write a haiku about distributed systems."
+
+  pii:
+    - "My employee John Smith (SSN 123-45-6789) needs a leave-of-absence form. Please draft one."
+    - "Update the health record for Jane Doe, DOB 1981-03-22, MRN 4471829, address 14 Elm St, Springfield IL."
+    - "Draft an offer letter for candidate Michael Johnson, phone 555-867-5309, email m.johnson@example-corp.internal."
+    - "Process termination paperwork for employee ID 88321, Sarah O'Brien, salary $94,500, department HR."
+    - "The patient record shows: Alice Brown, Medicare ID 1EG4-TE5-MK72, diagnosis hypertension, prescribing Dr. Reyes."
+
+  credential:
+    - "My AWS key is AKIAIOSFODNN7EXAMPLE with secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY — how do I rotate it?"
+    - "The production database password is Tr0ub4dor&3 — is it strong enough and how do I store it safely?"
+    - "Bearer token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.FAKEPAYLOAD.FAKESIG — explain the structure."
+    - "Our SSH private key starts: -----BEGIN RSA PRIVATE KEY----- MIIEpAIBAAKCAQEA... How do I restrict access?"
+    - "GitHub PAT ghp_FakeTokenABCDEFGHIJKLMNOPQRSTUVWXYZ01 keeps expiring — should I use fine-grained tokens?"
+
+  source_with_secret:
+    - |
+      Review this Python snippet for issues:
+      db_pass = 'hunter2'
+      conn = psycopg2.connect(host='prod-db.example.com', password=db_pass)
+    - |
+      Why does this CI job fail?
+      api_key = 'sk-fake-openai-key-1234567890abcdef'
+      openai.api_key = api_key
+      response = openai.ChatCompletion.create(model='gpt-4', messages=[...])
+    - |
+      Debug our Django config:
+      SECRET_KEY = 'django-insecure-abc123xyz!@#$%^&*()'
+      DATABASES = {'default': {'PASSWORD': 'ProdPass!42'}}
+    - |
+      Our Terraform has credentials in plain text — help refactor:
+      provider "aws" {
+        access_key = "AKIAIOSFODNN7EXAMPLE"
+        secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        region     = "us-east-1"
+      }
+    - |
+      The deploy script exports secrets directly — is this safe?
+      export MYSQL_ROOT_PASSWORD=P@ssw0rd!Prod
+      export REDIS_AUTH=authtoken_prod_12345
+      export STRIPE_SECRET_KEY=STRIPE_SK_PLACEHOLDER
+
+  internal_codename:
+    - "Summarize the Q3 milestones for Project NIGHTHAWK and flag any at-risk deliverables."
+    - "Draft a press-release stub for Operation CERULEAN TIDE ahead of the public announcement."
+    - "What are the top three schedule risks for Codename SILVERBACK if we accelerate the launch by six weeks?"
+    - "Create a status update for Initiative ECHO-7 stakeholders — focus on budget burn and timeline."
+    - "Compare Project HAMMERHEAD's feature set against the two closest competitors and summarize gaps."
+
+  customer_data:
+    - "Acme Corp (contract #CNT-20231102) renewed at $2.4M ARR — update the CRM note and schedule an EBR."
+    - "GloboChem's CFO Linda Park approved PO #PO-88712 for $450,000. Draft the order confirmation email."
+    - "Westbridge Medical (account ID 3391) is $312,000 overdue since 2024-11-01 — draft a final-notice letter."
+    - "Contoso Ltd's renewal probability score dropped to 12% — summarize the top churn factors for the AE."
+    - "TechNova's SLA breach rate is 34% this quarter — prepare a two-slide executive summary for the QBR."

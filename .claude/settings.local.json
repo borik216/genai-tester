@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(git init *)",
+      "Bash(uv sync *)",
+      "PowerShell(pip *)",
+      "PowerShell(python -m pip --version; python -m pip install aiohttp httpx cryptography pyyaml 2>&1)",
+      "PowerShell(Test-Path *)",
+      "Bash(Select-Object FullName)"
+    ]
+  }
+}

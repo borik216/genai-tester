@@ -1,0 +1,6 @@
+aiohttp
+httpx
+cryptography
+pyyaml
+mitmproxy
+pytest
