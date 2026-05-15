@@ -9,7 +9,13 @@
       "PowerShell(pip *)",
       "PowerShell(python -m pip --version; python -m pip install aiohttp httpx cryptography pyyaml 2>&1)",
       "PowerShell(Test-Path *)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(git filter-branch *)",
+      "Bash(git stash *)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --tree-filter \"sed -i 's/sk_live_[A-Za-z0-9]*/STRIPE_SK_PLACEHOLDER/g; s/sk_test_[A-Za-z0-9]*/STRIPE_SK_PLACEHOLDER/g' corpus/prompts.yaml\" --all)",
+      "Bash(git checkout *)",
+      "Bash(export FILTER_BRANCH_SQUELCH_WARNING=1)",
+      "Bash(git push *)"
     ]
   }
 }

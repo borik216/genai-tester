@@ -49,17 +49,24 @@ needed across deployments.
 ## Prerequisites
 
 - Python 3.12+
-- [`uv`](https://docs.astral.sh/uv/) for dependency management
-- Port 443 requires root or `CAP_NET_BIND_SERVICE` on Linux (see Troubleshooting)
+- Port 443 requires root or `CAP_NET_BIND_SERVICE` on Linux (see [Troubleshooting](#troubleshooting))
 
 ---
 
 ## Installation
 
 ```bash
-uv sync          # creates .venv and installs all dependencies
-# or:
-uv pip install -e .
+pip install -e .          # runtime only
+pip install -e ".[test]"  # include pytest for running tests
+```
+
+After installation the `genai-tester` entry point is available as an alternative to
+`python -m genai_tester`:
+
+```bash
+genai-tester gen-certs
+genai-tester serve --host 127.0.0.1 --port 8443
+genai-tester run --employees 5 --duration 10 --insecure-local
 ```
 
 ---
@@ -94,6 +101,12 @@ sudo update-ca-certificates
 ```bash
 sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain certs/ca.pem
+```
+
+### On the client (Windows)
+
+```powershell
+Import-Certificate -FilePath certs\ca.pem -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
 ---
@@ -148,6 +161,9 @@ print('PASS')
 "
 ```
 
+In smoke test mode all outcomes should be `sent` with `http_status: 200` — no gateway means no
+blocks.
+
 ---
 
 ## Full lab run (gateway in path)
@@ -190,9 +206,12 @@ Each line is a JSON object:
 
 **Outcome semantics:**
 
-- `sent` — any HTTP response received (including gateway block pages; check `http_status`)
-- `network-error` — TCP connection failed (gateway dropped the connection)
-- `timeout` — no response within 15 seconds
+| Outcome | Meaning |
+|---|---|
+| `sent` | HTTP response received from the fake server (clean prompt passed through) |
+| `blocked-by-gw` | Gateway returned HTTP 403 (DLP policy triggered) |
+| `network-error` | TCP connection failed — gateway dropped the connection outright |
+| `timeout` | No response within 15 seconds |
 
 Cross-reference `prompt_hash` against Check Point SmartLog to correlate harness records with
 gateway log entries.
@@ -242,12 +261,12 @@ Terminal 1 will print lines like:
 [DLP] PASS  host=api.openai.com bytes=142
 ```
 
-Terminal 2 JSONL will show `http_status: 403` for violations and `200` for clean prompts.
+Terminal 2 JSONL will show `outcome: "blocked-by-gw"` / `http_status: 403` for violations and
+`outcome: "sent"` / `http_status: 200` for clean prompts.
 
 ### Automated run
 
 ```bash
-pip install pytest
 pytest tests/test_local_e2e.py -v
 ```
 
@@ -260,22 +279,31 @@ The test spawns `mitmdump` automatically, runs the harness for 5 seconds with 10
 
 ```
 python -m genai_tester gen-certs [--out-dir DIR]
-python -m genai_tester serve [--host HOST] [--port PORT] [--cert-file PATH] [--key-file PATH]
+
+python -m genai_tester serve
+  [--host HOST]        # default: 0.0.0.0
+  [--port PORT]        # default: 443
+  [--cert-file PATH]   # default: certs/server.pem
+  [--key-file PATH]    # default: certs/server.key
+
 python -m genai_tester run
   --employees N
-  --departments "dept:count,..."   # must sum to --employees
-  --rate-per-employee RATE         # mean req/sec (default: 0.0167 = 1/60)
-  --duration SECS                  # default: 300
-  --violation-ratio RATIO          # 0.0–1.0, default: 0.3
-  --insecure-local                 # dev mode: bypass gateway (mutually exclusive with --proxy)
-  --server-host HOST               # for --insecure-local (default: localhost)
-  --server-port PORT               # for --insecure-local (default: 443)
-  --proxy URL                      # proxy mode, e.g. http://127.0.0.1:8080
-  --proxy-ca PATH                  # CA cert for proxy TLS (required with --proxy)
-  --ca-cert PATH                   # default: certs/ca.pem
-  --log-file PATH                  # default: stdout
-  --corpus PATH                    # default: corpus/prompts.yaml
+  [--departments "dept:count,..."]  # must sum to --employees; default: single "default" dept
+  [--rate-per-employee RATE]        # mean req/sec per employee (default: 0.0167 = 1/60)
+  [--duration SECS]                 # default: 300
+  [--violation-ratio RATIO]         # 0.0–1.0, default: 0.3
+  [--insecure-local]                # dev mode: bypass gateway, skip TLS verification
+  [--server-host HOST]              # for --insecure-local (default: localhost)
+  [--server-port PORT]              # for --insecure-local (default: 443)
+  [--proxy URL]                     # e.g. http://127.0.0.1:8080 (mutually exclusive with --insecure-local)
+  [--proxy-ca PATH]                 # CA cert for proxy TLS (required with --proxy)
+  [--ca-cert PATH]                  # default: certs/ca.pem
+  [--log-file PATH]                 # default: stdout
+  [--corpus PATH]                   # default: corpus/prompts.yaml
 ```
+
+`--insecure-local` and `--proxy` / `--proxy-ca` are mutually exclusive. `--proxy` and `--proxy-ca`
+must always be specified together.
 
 ---
 
