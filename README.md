@@ -8,22 +8,40 @@ controlled DLP-violating content and self-logs every attempt as JSONL.
 
 ---
 
-## Supported chatbots
+## Service coverage
 
-| Chatbot | Hostname(s) | Path | Protocol | Mode | Source |
-|---------|-------------|------|----------|------|--------|
-| Claude (Anthropic) | `api.anthropic.com` | `/v1/messages` | HTTPS | API | [docs.anthropic.com](https://docs.anthropic.com/en/api/messages) |
-| ChatGPT (OpenAI) | `api.openai.com` | `/v1/chat/completions` | HTTPS | API | [platform.openai.com](https://platform.openai.com/docs/api-reference/chat) |
-| Gemini (Google) | `generativelanguage.googleapis.com` | `/v1beta/models/gemini-1.5-pro:generateContent` | HTTPS | API | [ai.google.dev](https://ai.google.dev/api/generate-content) |
-| Grok (xAI) | `api.x.ai` | `/v1/chat/completions` | HTTPS | API | [docs.x.ai](https://docs.x.ai/docs/guides/chat-completions) |
-| DeepSeek | `api.deepseek.com` | `/chat/completions` | HTTPS | API | [api-docs.deepseek.com](https://api-docs.deepseek.com/) |
-| Copilot (consumer) | `copilot.microsoft.com` | `/c/api/chat` | **WSS** | Web UI ⚠ | Network capture (reverse-engineered) |
-| Perplexity | `api.perplexity.ai` | `/chat/completions` | HTTPS | API | [docs.perplexity.ai](https://docs.perplexity.ai/api-reference/chat-completions-post) |
+Traffic shapes are derived from the Check Point CPcode inspection engine (cpcode version 5,
+SHA-256 `6d84040e4d0e014ce88e84c06c02c73e80767af617750ca8eaafb5c336b14cb7`). Each dispatch key
+maps to one or more named parsers in that file. When the sigpack is updated, re-derive the table
+and recompute `CPCODE_HASH` in `genai_tester/_version.py`.
 
-> ⚠ **Copilot**: Microsoft publishes no API documentation for the consumer chatbot at
-> `copilot.microsoft.com`. The endpoint was determined by network-tab inspection and may change
-> without notice. TODO: revisit when/if Microsoft publishes consumer API docs.
-> Enterprise M365 Copilot (`graph.microsoft.com`) is a separate product and is out of scope.
+| # | Dispatch key | CPcode parser | Hostname | Flow | URL path | Body field(s) inspected | Protocol |
+|---|---|---|---|---|---|---|---|
+| 1 | `chatgpt_chat` | `chatgpt_parser` | `chatgpt.com` | chat | `/backend-api/conversation` | `messages[*].content[*].parts` | HTTPS POST |
+| 2 | `chatgpt_upload` | `chatgpt file upload parser` | `files.oaiusercontent.com` | upload | `/<uuid>` | file content (multipart text/plain) | HTTPS PUT |
+| 3 | `claude_chat` | `claude file parser` | `claude.ai` | chat | `/api/organizations/<org>/chat_conversations/<conv>/completion` | `prompt` | HTTPS POST |
+| 4 | `claude_upload` | `claude file upload parser` | `claude.ai` | upload | `/api/organizations/<org>/chat_conversations/<conv>/upload-file` | file content (multipart text/plain) | HTTPS POST |
+| 5 | `copilot_chat` | `copilot file parser` | `copilot.microsoft.com` | chat | `/c/api/chat` | `content.text` (WS frame) | **WSS** |
+| 6 | `copilot_upload` | `copilot file upload parser` | `copilot.microsoft.com` | upload | `/c/api/attachments` | file content (multipart text/plain) | HTTPS POST |
+| 7 | `teams_copilot_chat` | `teams_copilot_parser` | `substrate.office.com` | chat | `/m365Copilot/Chathub` | `arguments[0].source` | HTTPS POST |
+| 8 | `teams_copilot_upload` | `teams_copilot_upload_parser` | `oncprealp-my.sharepoint.com` | upload | `/personal/.../drive/items` | file content (multipart text/plain) | HTTPS POST |
+| 9 | `deepseek_chat` | `deepseek file parser` | `chat.deepseek.com` | chat | `/api/v0/chat/completion` | `messages[*].content` | HTTPS POST |
+| 10 | `deepseek_upload` | `deepseek file upload parser` | `chat.deepseek.com` | upload | `/api/v0/file/upload_file` | file content (multipart text/plain) | HTTPS POST |
+| 11 | `duck_chat` | `duck file parser` | `duck.ai` | chat | `/duckchat/v1/chat` | `query` | HTTPS POST |
+| 12 | `gemini_chat` | `gemini file parser` | `gemini.google.com` | chat | `/_/BardChatUi/data/assistant.lamda.BardFrontendService` | `[5][0][0]` (JSON array, CT text/plain) | HTTPS POST |
+| 13 | `gemini_upload` | `gemini file upload parser` | `push.clients6.google.com` | upload | `/upload/?upload_id=<id>` | file content (multipart text/plain) | HTTPS POST |
+| 14 | `grok_chat` | `grok file parser` | `grok.com` | chat | `/rest/app-chat/conversations/<uuid>` | `message` | HTTPS POST |
+| 15 | `grok_upload` | `grok file upload parser` | `grok.com` | upload | `/rest/app-chat/upload-file` | file content (multipart text/plain) | HTTPS POST |
+| 16 | `hf_completions` | `huggingface chat completions parser` | `router.huggingface.co` | chat | `/<provider>/<model>/v1/chat/completions` | `messages[*].content` | HTTPS POST |
+| 17 | `hf_prompt` | `huggingface prompt parser` | `router.huggingface.co` | chat | `/<provider>/<model>` | `prompt` | HTTPS POST |
+| 18 | `hf_inputs` | `huggingface inputs parser` | `router.huggingface.co` | chat | `/<provider>/<model>` | `inputs` | HTTPS POST |
+| 19 | `lovable_chat` | `lovable file parser` | `api.lovable.dev` | chat | `/projects/<uuid>/chat` | `messages[*].content` | HTTPS POST |
+| 20 | `perplexity_chat` | `perplexity file parser` | `perplexity.ai` | chat | `/rest/sse/perplexity_ask` | `query` | HTTPS POST |
+| 21 | `perplexity_upload` | `perplexity file upload parser` | `ppl-ai-file-upload.s3.amazonaws.com` | upload | `/uploads/<uuid>` | file content (multipart text/plain) | HTTPS POST |
+
+**Special headers:**
+- `copilot_chat`, `copilot_upload`: `User-Agent: Mozilla/5.0 ... Edg/146.0.0.0`
+- `teams_copilot_chat`, `teams_copilot_upload`: `User-Agent: MSAppHost/3.0`
 
 ---
 
@@ -33,15 +51,15 @@ controlled DLP-violating content and self-logs every attempt as JSONL.
   Internal subnet                                      External subnet
   ┌──────────────────────────┐                        ┌───────────────────────────┐
   │  Employee Simulator       │                        │  Fake Upstream Server      │
-  │  (genai-tester run)       │──── HTTPS ────────────►│  (genai-tester serve)      │
+  │  (genai-tester run)       │──── HTTPS/WSS ────────►│  (genai-tester serve)      │
   │                           │                        │  :443  server.pem/key      │
   │  /etc/hosts:              │                        └───────────────────────────┘
-  │  api.anthropic.com   → GW │                                     ▲
-  │  api.openai.com      → GW │        ┌─────────────────────┐      │ HTTPS (trusts our CA)
-  │  generative*.googleapis.* → GW │   │  Check Point Gateway │──────┘
-  │  chatgpt.com         → GW │   └──►│  HTTPS Inspection    │
-  │  claude.ai           → GW │        │  DLP Policy          │
-  │                           │        │  Trusts our CA       │
+  │  chatgpt.com         → GW │                                     ▲
+  │  claude.ai           → GW │        ┌─────────────────────┐      │ HTTPS (trusts our CA)
+  │  copilot.microsoft.com→GW │   └──►│  Check Point Gateway │──────┘
+  │  gemini.google.com   → GW │        │  HTTPS Inspection    │
+  │  grok.com            → GW │        │  DLP Policy          │
+  │  … (21 hostnames)    → GW │        │  Trusts our CA       │
   └──────────────────────────┘        └─────────────────────┘
 ```
 
@@ -136,15 +154,18 @@ Add the following to `/etc/hosts` on the client host, replacing `<gateway-ip>` w
 internal-subnet IP address:
 
 ```
-<gateway-ip>  api.anthropic.com
-<gateway-ip>  api.openai.com
-<gateway-ip>  generativelanguage.googleapis.com
-<gateway-ip>  chatgpt.com
+<gateway-ip>  chatgpt.com files.oaiusercontent.com
 <gateway-ip>  claude.ai
-<gateway-ip>  api.x.ai
-<gateway-ip>  api.deepseek.com
-<gateway-ip>  api.perplexity.ai
-<gateway-ip>  copilot.microsoft.com
+<gateway-ip>  copilot.microsoft.com copilot.com www.copilot.com
+<gateway-ip>  substrate.office.com oncprealp-my.sharepoint.com
+<gateway-ip>  chat.deepseek.com
+<gateway-ip>  duck.ai
+<gateway-ip>  gemini.google.com push.clients6.google.com clients6.google.com
+<gateway-ip>  grok.com
+<gateway-ip>  router.huggingface.co
+<gateway-ip>  api.lovable.dev
+<gateway-ip>  perplexity.ai ppl-ai-file-upload.s3.amazonaws.com
+<gateway-ip>  m365.cloud.microsoft teams.cloud.microsoft outlook.office.com
 ```
 
 ---
@@ -217,7 +238,8 @@ Each line is a JSON object:
 | `timestamp` | ISO 8601 string | `"2025-05-15T09:23:11.042+00:00"` |
 | `employee_id` | string | `"engineering-02"` |
 | `department` | string | `"engineering"` |
-| `target_chatbot` | `"anthropic"` \| `"openai"` \| `"google"` \| `"xai"` \| `"deepseek"` \| `"perplexity"` \| `"copilot"` | `"xai"` |
+| `target_chatbot` | one of 21 dispatch keys (see Service coverage table) | `"claude_chat"` |
+| `flow_type` | `"chat"` \| `"file_upload"` | `"chat"` |
 | `prompt_category` | see below | `"credential"` |
 | `prompt_hash` | SHA-256 hex | `"a3f1..."` |
 | `http_status` | integer or `null` | `200`, `403`, `null` |
@@ -280,8 +302,9 @@ python -m genai_tester run \
 
 Terminal 1 will print lines like:
 ```
-[DLP] BLOCK host=api.anthropic.com match=us_ssn category=pii
-[DLP] PASS  host=api.openai.com bytes=142
+[DLP] BLOCK host=claude.ai match=us_ssn category=pii
+[DLP] PASS  host=chatgpt.com bytes=142
+[DLP] WS BLOCK host=copilot.microsoft.com match=aws_key category=credential
 ```
 
 Terminal 2 JSONL will show `outcome: "blocked-by-gw"` / `http_status: 403` for violations and
@@ -293,8 +316,9 @@ Terminal 2 JSONL will show `outcome: "blocked-by-gw"` / `http_status: 403` for v
 pytest tests/test_local_e2e.py -v
 ```
 
-The test spawns `mitmdump` automatically, runs the harness for 5 seconds with 10 employees at
-2 req/s (≈100 requests), and asserts: every violation prompt → 403, every clean prompt → 200.
+The test spawns `mitmdump` automatically, runs 21 employees for 15 seconds at 3 req/s each
+(≈945 requests), and asserts: every violation prompt → 403 or connection kill (Copilot WS),
+every clean prompt → 200, and all 21 dispatch keys appear in the log.
 
 ---
 
@@ -351,13 +375,13 @@ sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 8443
 
 - Verify `certs/ca.pem` is installed in the OS trust store (`update-ca-certificates` on Debian/Ubuntu).
 - Or pass `--ca-cert certs/ca.pem` to `genai-tester run` and confirm the path exists.
-- For quick debugging, check with: `curl --cacert certs/ca.pem https://api.anthropic.com/healthz`
+- For quick debugging, check with: `curl --cacert certs/ca.pem https://claude.ai/healthz`
   (after `/etc/hosts` redirect is in place).
 
 **/etc/hosts not taking effect**
 
 - Flush the DNS cache: `sudo systemd-resolve --flush-caches` (Linux) or `sudo dscacheutil -flushcache` (macOS).
-- Confirm the entry with: `getent hosts api.anthropic.com`.
+- Confirm the entry with: `getent hosts claude.ai`.
 
 **Cert expired**
 

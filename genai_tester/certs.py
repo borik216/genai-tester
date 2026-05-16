@@ -16,15 +16,28 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 CERT_DIR = Path("certs")
 
 SANS_DNS: list[str] = [
-    "api.anthropic.com",
-    "api.openai.com",
-    "generativelanguage.googleapis.com",
+    # Web-interface targets matched by nbnbnb.C parsers (cpcode version 5)
     "chatgpt.com",
+    "files.oaiusercontent.com",             # chatgpt file upload parser
     "claude.ai",
-    "api.x.ai",  # Grok (xAI) — https://docs.x.ai/docs/guides/chat-completions
-    "api.deepseek.com",  # DeepSeek — https://api-docs.deepseek.com/
-    "api.perplexity.ai",  # Perplexity — https://docs.perplexity.ai/api-reference/
-    "copilot.microsoft.com",  # Copilot consumer (WSS) — reverse-engineered; TODO revisit
+    "copilot.microsoft.com",
+    "copilot.com",
+    "www.copilot.com",
+    "substrate.office.com",                 # teams_copilot_parser
+    "oncprealp-my.sharepoint.com",          # teams_copilot_upload_parser
+    "chat.deepseek.com",                    # deepseek file parser
+    "duck.ai",                              # duck file parser
+    "gemini.google.com",                    # gemini file parser
+    "push.clients6.google.com",             # gemini file upload parser
+    "clients6.google.com",
+    "grok.com",                             # grok file parser
+    "router.huggingface.co",               # huggingface parsers
+    "api.lovable.dev",                      # lovable file parser
+    "perplexity.ai",                        # perplexity file parser
+    "ppl-ai-file-upload.s3.amazonaws.com",  # perplexity file upload parser
+    "m365.cloud.microsoft",
+    "teams.cloud.microsoft",
+    "outlook.office.com",
     "localhost",
 ]
 SANS_IP: list[str] = ["127.0.0.1"]

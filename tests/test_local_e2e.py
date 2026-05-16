@@ -4,7 +4,7 @@ Local end-to-end test: harness → mitmproxy (DLP addon) → fake server (HTTP +
 Flow:
   employees → mitmdump:8080 → DLP addon inspects:
     HTTP chatbots: short-circuited with fake 200/403, no upstream needed.
-    Copilot (WSS): redirected to fake_server:8444, frames inspected in websocket_message.
+    Copilot consumer (WSS): redirected to fake_server:8444, frames inspected in websocket_message.
 
 Requires:
   - mitmproxy installed:  pip install mitmproxy
@@ -37,6 +37,26 @@ ADDON = PROJECT_ROOT / "tools" / "dlp_addon.py"
 CORPUS = PROJECT_ROOT / "corpus" / "prompts.yaml"
 CERTS_DIR = PROJECT_ROOT / "certs"
 
+# All 21 dispatch keys defined in employee.py / models.py
+ALL_CHATBOT_KEYS: frozenset[str] = frozenset(
+    {
+        "chatgpt_chat", "chatgpt_upload",
+        "claude_chat", "claude_upload",
+        "copilot_chat", "copilot_upload",
+        "teams_copilot_chat", "teams_copilot_upload",
+        "deepseek_chat", "deepseek_upload",
+        "duck_chat",
+        "gemini_chat", "gemini_upload",
+        "grok_chat", "grok_upload",
+        "hf_completions", "hf_prompt", "hf_inputs",
+        "lovable_chat",
+        "perplexity_chat", "perplexity_upload",
+    }
+)
+
+# Keys that use WebSocket — violations signalled by connection close, not HTTP 403.
+WS_KEYS: frozenset[str] = frozenset({"copilot_chat"})
+
 
 @pytest.fixture(scope="session")
 def mitmproxy_ca() -> Path:
@@ -50,7 +70,6 @@ def mitmproxy_ca() -> Path:
 
 @pytest.fixture(scope="session")
 def fake_server_proc() -> Generator[subprocess.Popen[bytes], None, None]:
-    # Ensure certs exist; gen-certs is idempotent but we need them for TLS.
     if not (CERTS_DIR / "server.pem").exists():
         subprocess.run(
             [sys.executable, "-m", "genai_tester", "gen-certs"],
@@ -107,7 +126,7 @@ def mitmdump_proc(
             "mitmdump",
             "-s", str(ADDON),
             "--listen-port", str(PROXY_PORT),
-            "--ssl-insecure",   # allows mitmproxy to connect to our self-signed fake server
+            "--ssl-insecure",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -140,9 +159,9 @@ def test_local_e2e(
     tmp_path: Path,
 ) -> None:
     log_file = tmp_path / "e2e.jsonl"
-    duration = 5
-    employees = 14    # 14 employees × 2 req/s × 5s ≈ 140 requests → ~20 per chatbot
-    rate = 2.0
+    duration = 15
+    employees = 21    # one per dispatch key; 21 × 3 req/s × 15s ≈ 945 requests total
+    rate = 3.0
 
     result = subprocess.run(
         [
@@ -158,7 +177,7 @@ def test_local_e2e(
         ],
         capture_output=True,
         text=True,
-        timeout=duration + 20,
+        timeout=duration + 30,
         cwd=str(PROJECT_ROOT),
     )
 
@@ -178,44 +197,49 @@ def test_local_e2e(
         cat = rec["prompt_category"]
         status = rec["http_status"]
         chatbot = rec["target_chatbot"]
+        flow_type = rec["flow_type"]
         eid = rec["employee_id"]
 
-        if chatbot == "copilot":
-            # Copilot uses WSS: violations are signalled by connection kill (no HTTP status).
+        if chatbot in WS_KEYS:
+            # WebSocket flows: violations signalled by connection kill (no HTTP status).
             if cat != "clean":
                 assert rec["outcome"] in ("blocked-by-gw", "network-error"), (
-                    f"Copilot violation prompt ({cat}) expected block, "
-                    f"got outcome={rec['outcome']} [employee={eid}]"
+                    f"WS violation ({cat}) expected block, "
+                    f"got outcome={rec['outcome']} [key={chatbot} employee={eid}]"
                 )
             else:
                 assert rec["outcome"] == "sent", (
-                    f"Copilot clean prompt expected sent, "
-                    f"got outcome={rec['outcome']} [employee={eid}]"
+                    f"WS clean prompt expected sent, "
+                    f"got outcome={rec['outcome']} [key={chatbot} employee={eid}]"
                 )
         else:
-            # HTTP chatbots: DLP addon returns 403 / 200 directly.
+            # HTTP chatbots and upload flows: DLP addon returns 403 / 200 directly.
             if cat != "clean":
                 assert status == 403, (
-                    f"violation prompt ({cat}) expected 403, got {status} "
-                    f"[chatbot={chatbot} employee={eid} outcome={rec['outcome']}]"
+                    f"{flow_type} violation ({cat}) expected 403, got {status} "
+                    f"[key={chatbot} employee={eid} outcome={rec['outcome']}]"
                 )
             else:
                 assert status == 200, (
-                    f"clean prompt expected 200, got {status} "
-                    f"[chatbot={chatbot} employee={eid} outcome={rec['outcome']}]"
+                    f"{flow_type} clean prompt expected 200, got {status} "
+                    f"[key={chatbot} employee={eid} outcome={rec['outcome']}]"
                 )
 
-    # Every chatbot must appear in the log at least once.
-    expected_chatbots = {"anthropic", "openai", "google", "xai", "deepseek", "perplexity", "copilot"}
-    seen_chatbots = {rec["target_chatbot"] for rec in records}
-    missing = expected_chatbots - seen_chatbots
+    # Every dispatch key must appear in the log.
+    seen = {rec["target_chatbot"] for rec in records}
+    missing = ALL_CHATBOT_KEYS - seen
     assert not missing, (
-        f"chatbots not seen in run: {missing}. "
-        f"Increase employees or duration if this flakes."
+        f"dispatch keys not seen in run: {missing}. "
+        "Increase employees or duration if this flakes."
     )
 
-    # Loose lower-bound: at least 30% of the theoretical maximum
-    expected = duration * rate * employees  # ~140
+    # Both flow types must appear.
+    seen_flows = {rec["flow_type"] for rec in records}
+    assert "chat" in seen_flows, "no chat-flow records found"
+    assert "file_upload" in seen_flows, "no file_upload-flow records found"
+
+    # Loose lower-bound: at least 30% of theoretical maximum.
+    expected = duration * rate * employees
     assert len(records) >= expected * 0.3, (
         f"too few records: {len(records)} (expected ≥ {int(expected * 0.3)} "
         f"from {employees} employees × {rate}/s × {duration}s)"

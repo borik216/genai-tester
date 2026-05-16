@@ -26,7 +26,13 @@
       "Bash(python -c \"from cryptography import x509; cert = x509.load_pem_x509_certificate\\(open\\('certs/server.pem','rb'\\).read\\(\\)\\); san = cert.extensions.get_extension_for_class\\(x509.SubjectAlternativeName\\); print\\('SANs:', [str\\(n.value\\) for n in san.value]\\)\")",
       "Read(//mnt/c/Users/User/Documents/projects/**)",
       "Bash(python -c \"import genai_tester.certs as c; print\\('SANS_DNS:', c.SANS_DNS\\)\")",
-      "PowerShell(Set-Location \"C:\\\\Users\\\\User\\\\Documents\\\\projects\\\\genai-tester\"; $ruff = Resolve-Path \".venv\\\\Scripts\\\\ruff.exe\"; & $ruff check genai_tester/ tools/; & $ruff format --check genai_tester/ tools/)"
+      "PowerShell(Set-Location \"C:\\\\Users\\\\User\\\\Documents\\\\projects\\\\genai-tester\"; $ruff = Resolve-Path \".venv\\\\Scripts\\\\ruff.exe\"; & $ruff check genai_tester/ tools/; & $ruff format --check genai_tester/ tools/)",
+      "Bash(python3 *)",
+      "Bash(grep -E \"^[a-zA-Z_][a-zA-Z0-9_:]*$\")",
+      "Bash(python *)",
+      "Bash(.venv\\\\Scripts\\\\ruff check *)",
+      "PowerShell(cd \"C:\\\\Users\\\\User\\\\Documents\\\\projects\\\\genai-tester\"; $server = Start-Process -FilePath \".venv\\\\Scripts\\\\python\" -ArgumentList \"-m genai_tester serve --host 127.0.0.1 --port 8443\" -PassThru -WindowStyle Hidden; Start-Sleep 2; $server.Id)",
+      "PowerShell(Get-Process *)"
     ]
   }
 }

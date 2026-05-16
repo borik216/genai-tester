@@ -8,3 +8,4 @@ dist/
 *.egg-info/
 .ruff_cache/
 corpus/prompts.yaml
+nbnbnb.C
