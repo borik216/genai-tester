@@ -115,7 +115,9 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="CA cert to trust for gateway TLS (default: certs/ca.pem)",
     )
-    rp.add_argument("--log-file", default=None, metavar="PATH", help="JSONL output file (default: stdout)")
+    rp.add_argument(
+        "--log-file", default=None, metavar="PATH", help="JSONL output file (default: stdout)"
+    )
     rp.add_argument(
         "--corpus",
         default="corpus/prompts.yaml",
@@ -127,7 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="URL",
         help="HTTP proxy URL (e.g. http://127.0.0.1:8080). Requires --proxy-ca. "
-             "Mutually exclusive with --insecure-local.",
+        "Mutually exclusive with --insecure-local.",
     )
     rp.add_argument(
         "--proxy-ca",

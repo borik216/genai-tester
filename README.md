@@ -2,9 +2,28 @@
 
 DLP test harness for Check Point gateway inspection of GenAI chatbot traffic.
 
-Simulates N employees sending prompts to Anthropic, OpenAI, and Google APIs through a gateway that
-performs HTTPS inspection and DLP policy enforcement. The harness generates correctly-classified
-traffic with controlled DLP-violating content and self-logs every attempt as JSONL.
+Simulates N employees sending prompts to AI chatbot APIs through a gateway that performs HTTPS
+inspection and DLP policy enforcement. The harness generates correctly-classified traffic with
+controlled DLP-violating content and self-logs every attempt as JSONL.
+
+---
+
+## Supported chatbots
+
+| Chatbot | Hostname(s) | Path | Protocol | Mode | Source |
+|---------|-------------|------|----------|------|--------|
+| Claude (Anthropic) | `api.anthropic.com` | `/v1/messages` | HTTPS | API | [docs.anthropic.com](https://docs.anthropic.com/en/api/messages) |
+| ChatGPT (OpenAI) | `api.openai.com` | `/v1/chat/completions` | HTTPS | API | [platform.openai.com](https://platform.openai.com/docs/api-reference/chat) |
+| Gemini (Google) | `generativelanguage.googleapis.com` | `/v1beta/models/gemini-1.5-pro:generateContent` | HTTPS | API | [ai.google.dev](https://ai.google.dev/api/generate-content) |
+| Grok (xAI) | `api.x.ai` | `/v1/chat/completions` | HTTPS | API | [docs.x.ai](https://docs.x.ai/docs/guides/chat-completions) |
+| DeepSeek | `api.deepseek.com` | `/chat/completions` | HTTPS | API | [api-docs.deepseek.com](https://api-docs.deepseek.com/) |
+| Copilot (consumer) | `copilot.microsoft.com` | `/c/api/chat` | **WSS** | Web UI ⚠ | Network capture (reverse-engineered) |
+| Perplexity | `api.perplexity.ai` | `/chat/completions` | HTTPS | API | [docs.perplexity.ai](https://docs.perplexity.ai/api-reference/chat-completions-post) |
+
+> ⚠ **Copilot**: Microsoft publishes no API documentation for the consumer chatbot at
+> `copilot.microsoft.com`. The endpoint was determined by network-tab inspection and may change
+> without notice. TODO: revisit when/if Microsoft publishes consumer API docs.
+> Enterprise M365 Copilot (`graph.microsoft.com`) is a separate product and is out of scope.
 
 ---
 
@@ -122,6 +141,10 @@ internal-subnet IP address:
 <gateway-ip>  generativelanguage.googleapis.com
 <gateway-ip>  chatgpt.com
 <gateway-ip>  claude.ai
+<gateway-ip>  api.x.ai
+<gateway-ip>  api.deepseek.com
+<gateway-ip>  api.perplexity.ai
+<gateway-ip>  copilot.microsoft.com
 ```
 
 ---
@@ -194,7 +217,7 @@ Each line is a JSON object:
 | `timestamp` | ISO 8601 string | `"2025-05-15T09:23:11.042+00:00"` |
 | `employee_id` | string | `"engineering-02"` |
 | `department` | string | `"engineering"` |
-| `target_chatbot` | `"anthropic"` \| `"openai"` \| `"google"` | `"anthropic"` |
+| `target_chatbot` | `"anthropic"` \| `"openai"` \| `"google"` \| `"xai"` \| `"deepseek"` \| `"perplexity"` \| `"copilot"` | `"xai"` |
 | `prompt_category` | see below | `"credential"` |
 | `prompt_hash` | SHA-256 hex | `"a3f1..."` |
 | `http_status` | integer or `null` | `200`, `403`, `null` |

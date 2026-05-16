@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 Outcome = Literal["sent", "blocked-by-gw", "network-error", "timeout"]
-Chatbot = Literal["anthropic", "openai", "google"]
+Chatbot = Literal["anthropic", "openai", "google", "xai", "deepseek", "perplexity", "copilot"]
 Category = Literal[
     "clean", "pii", "credential", "source_with_secret", "internal_codename", "customer_data"
 ]

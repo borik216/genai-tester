@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import ipaddress
 import os
 import ssl
@@ -20,6 +21,10 @@ SANS_DNS: list[str] = [
     "generativelanguage.googleapis.com",
     "chatgpt.com",
     "claude.ai",
+    "api.x.ai",  # Grok (xAI) — https://docs.x.ai/docs/guides/chat-completions
+    "api.deepseek.com",  # DeepSeek — https://api-docs.deepseek.com/
+    "api.perplexity.ai",  # Perplexity — https://docs.perplexity.ai/api-reference/
+    "copilot.microsoft.com",  # Copilot consumer (WSS) — reverse-engineered; TODO revisit
     "localhost",
 ]
 SANS_IP: list[str] = ["127.0.0.1"]
@@ -90,12 +95,8 @@ def generate_server_cert(
         .not_valid_after(now + timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(san, critical=False)
-        .add_extension(
-            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False
-        )
-        .add_extension(
-            x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False
-        )
+        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
         .add_extension(
             x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()),
             critical=False,
@@ -138,10 +139,8 @@ def _write_key(path: Path, key: rsa.RSAPrivateKey) -> None:
             serialization.NoEncryption(),
         )
     )
-    try:
+    with contextlib.suppress(NotImplementedError):  # Windows doesn't support chmod
         os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
-    except NotImplementedError:
-        pass  # Windows; acceptable in lab context
 
 
 def load_ssl_context_server(cert_file: str, key_file: str) -> ssl.SSLContext:

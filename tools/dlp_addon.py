@@ -1,21 +1,31 @@
 """
 mitmproxy addon — stand-in DLP engine for local end-to-end testing.
 
-Short-circuits every request to a target chatbot hostname: returns 403 on
-a pattern match (BLOCK) or a shape-correct 200 (PASS).  No traffic ever
-reaches the real upstream APIs; the harness runs fully offline.
+HTTP chatbots: short-circuits every request (returns 403 on a pattern match or a
+shape-correct 200). No traffic reaches real upstream APIs; the harness runs fully offline.
+
+Copilot consumer (WSS): redirects the WebSocket upgrade to the local fake server
+(FAKE_SERVER_HOST:FAKE_SERVER_PORT), then inspects each client→server WebSocket frame.
+Frame matches → flow.kill() (client sees connection closed = blocked). Frame clean → fake
+server responds.
 
 Usage:
-    mitmdump -s tools/dlp_addon.py --listen-port 8080
+    FAKE_SERVER_PORT=8444 mitmdump -s tools/dlp_addon.py --listen-port 8080 --ssl-insecure
 """
+
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import uuid
 
 from mitmproxy import http
+
+# Fake server coordinates for Copilot WebSocket redirect.
+FAKE_SERVER_HOST: str = os.environ.get("FAKE_SERVER_HOST", "127.0.0.1")
+FAKE_SERVER_PORT: int = int(os.environ.get("FAKE_SERVER_PORT", "8444"))
 
 CHATBOT_HOSTS: frozenset[str] = frozenset(
     {
@@ -24,6 +34,10 @@ CHATBOT_HOSTS: frozenset[str] = frozenset(
         "generativelanguage.googleapis.com",
         "claude.ai",
         "chatgpt.com",
+        "api.x.ai",  # Grok (xAI)
+        "api.deepseek.com",  # DeepSeek
+        "api.perplexity.ai",  # Perplexity
+        "copilot.microsoft.com",  # Copilot consumer (WSS)
     }
 )
 
@@ -102,35 +116,35 @@ def _fake_response(host: str) -> dict[str, object]:
             "stop_sequence": None,
             "usage": {"input_tokens": 10, "output_tokens": 1},
         }
-    if "openai" in host or "chatgpt" in host:
+    if "google" in host or "generativelanguage" in host:
         return {
-            "id": f"chatcmpl-{uuid.uuid4().hex}",
-            "object": "chat.completion",
-            "created": int(time.time()),
-            "model": "gpt-4o",
-            "choices": [
+            "candidates": [
                 {
+                    "content": {"parts": [{"text": "OK"}], "role": "model"},
+                    "finishReason": "STOP",
                     "index": 0,
-                    "message": {"role": "assistant", "content": "OK"},
-                    "finish_reason": "stop",
                 }
             ],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11},
+            "usageMetadata": {
+                "promptTokenCount": 10,
+                "candidatesTokenCount": 1,
+                "totalTokenCount": 11,
+            },
         }
-    # google / gemini
+    # Default: OpenAI-compatible format (openai, chatgpt, xai/grok, deepseek, perplexity)
     return {
-        "candidates": [
+        "id": f"chatcmpl-{uuid.uuid4().hex}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": "gpt-4o",
+        "choices": [
             {
-                "content": {"parts": [{"text": "OK"}], "role": "model"},
-                "finishReason": "STOP",
                 "index": 0,
+                "message": {"role": "assistant", "content": "OK"},
+                "finish_reason": "stop",
             }
         ],
-        "usageMetadata": {
-            "promptTokenCount": 10,
-            "candidatesTokenCount": 1,
-            "totalTokenCount": 11,
-        },
+        "usage": {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11},
     }
 
 
@@ -140,6 +154,15 @@ class DLPAddon:
         if host not in CHATBOT_HOSTS:
             return
 
+        # Copilot consumer uses WebSocket. Redirect the upgrade to the local fake server;
+        # DLP inspection happens in websocket_message once frames arrive.
+        if host == "copilot.microsoft.com":
+            flow.metadata["original_host"] = host
+            flow.request.host = FAKE_SERVER_HOST
+            flow.request.port = FAKE_SERVER_PORT
+            return
+
+        # HTTP chatbots: inspect request body, short-circuit with fake response.
         body = flow.request.text or ""
 
         for category, name, pattern in DLP_PATTERNS:
@@ -163,6 +186,40 @@ class DLPAddon:
             200,
             json.dumps(_fake_response(host)),
             {"Content-Type": "application/json"},
+        )
+
+    def websocket_message(self, flow: http.HTTPFlow) -> None:
+        # Identify Copilot flows. pretty_host returns the Host header value (copilot.microsoft.com)
+        # even after we redirected flow.request.host to the fake server IP. Fall back to metadata.
+        is_copilot = (
+            flow.request.pretty_host == "copilot.microsoft.com"
+            or flow.metadata.get("original_host") == "copilot.microsoft.com"
+        )
+        if not is_copilot:
+            return
+
+        assert flow.websocket is not None
+        msg = flow.websocket.messages[-1]
+        if not msg.from_client:
+            return  # don't inspect server→client frames
+
+        body = msg.text or ""
+
+        for category, name, pattern in DLP_PATTERNS:
+            if pattern.search(body):
+                print(
+                    f"[DLP] WS BLOCK host=copilot.microsoft.com match={name} category={category}",
+                    flush=True,
+                )
+                # Drop the frame first (prevents it reaching the fake server, so no TEXT response),
+                # then kill the connection so the client sees a close/error instead of silence.
+                msg.drop()
+                flow.kill()
+                return
+
+        print(
+            f"[DLP] WS PASS host=copilot.microsoft.com bytes={len(msg.content)}",
+            flush=True,
         )
 
 

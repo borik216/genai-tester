@@ -1,5 +1,10 @@
 """
-Local end-to-end test: harness → mitmproxy (DLP addon) → fake responses.
+Local end-to-end test: harness → mitmproxy (DLP addon) → fake server (HTTP + WSS).
+
+Flow:
+  employees → mitmdump:8080 → DLP addon inspects:
+    HTTP chatbots: short-circuited with fake 200/403, no upstream needed.
+    Copilot (WSS): redirected to fake_server:8444, frames inspected in websocket_message.
 
 Requires:
   - mitmproxy installed:  pip install mitmproxy
@@ -12,6 +17,7 @@ Run:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -23,11 +29,13 @@ from pathlib import Path
 import pytest
 
 PROXY_PORT = 8080
+FAKE_SERVER_PORT = 8444
 PROXY_URL = f"http://127.0.0.1:{PROXY_PORT}"
 MITMPROXY_CA = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem"
 PROJECT_ROOT = Path(__file__).parent.parent
 ADDON = PROJECT_ROOT / "tools" / "dlp_addon.py"
 CORPUS = PROJECT_ROOT / "corpus" / "prompts.yaml"
+CERTS_DIR = PROJECT_ROOT / "certs"
 
 
 @pytest.fixture(scope="session")
@@ -41,18 +49,69 @@ def mitmproxy_ca() -> Path:
 
 
 @pytest.fixture(scope="session")
-def mitmdump_proc(mitmproxy_ca: Path) -> Generator[subprocess.Popen[bytes], None, None]:
+def fake_server_proc() -> Generator[subprocess.Popen[bytes], None, None]:
+    # Ensure certs exist; gen-certs is idempotent but we need them for TLS.
+    if not (CERTS_DIR / "server.pem").exists():
+        subprocess.run(
+            [sys.executable, "-m", "genai_tester", "gen-certs"],
+            cwd=str(PROJECT_ROOT),
+            check=True,
+        )
+
+    proc = subprocess.Popen(
+        [
+            sys.executable, "-m", "genai_tester", "serve",
+            "--host", "127.0.0.1",
+            "--port", str(FAKE_SERVER_PORT),
+            "--cert-file", str(CERTS_DIR / "server.pem"),
+            "--key-file", str(CERTS_DIR / "server.key"),
+        ],
+        cwd=str(PROJECT_ROOT),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", FAKE_SERVER_PORT), timeout=0.5):
+                break
+        except OSError:
+            time.sleep(0.2)
+    else:
+        proc.terminate()
+        pytest.fail(f"fake server did not start within 10 seconds on port {FAKE_SERVER_PORT}")
+
+    yield proc
+
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
+@pytest.fixture(scope="session")
+def mitmdump_proc(
+    mitmproxy_ca: Path,
+    fake_server_proc: subprocess.Popen[bytes],
+) -> Generator[subprocess.Popen[bytes], None, None]:
     if shutil.which("mitmdump") is None:
         pytest.skip("mitmdump not found in PATH. Install with: pip install mitmproxy")
+
+    env = os.environ.copy()
+    env["FAKE_SERVER_PORT"] = str(FAKE_SERVER_PORT)
 
     proc = subprocess.Popen(
         [
             "mitmdump",
             "-s", str(ADDON),
             "--listen-port", str(PROXY_PORT),
+            "--ssl-insecure",   # allows mitmproxy to connect to our self-signed fake server
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=env,
     )
 
     deadline = time.monotonic() + 15
@@ -82,7 +141,7 @@ def test_local_e2e(
 ) -> None:
     log_file = tmp_path / "e2e.jsonl"
     duration = 5
-    employees = 10
+    employees = 14    # 14 employees × 2 req/s × 5s ≈ 140 requests → ~20 per chatbot
     rate = 2.0
 
     result = subprocess.run(
@@ -118,20 +177,45 @@ def test_local_e2e(
     for rec in records:
         cat = rec["prompt_category"]
         status = rec["http_status"]
+        chatbot = rec["target_chatbot"]
         eid = rec["employee_id"]
-        if cat != "clean":
-            assert status == 403, (
-                f"violation prompt ({cat}) expected 403, got {status} "
-                f"[employee={eid} outcome={rec['outcome']}]"
-            )
+
+        if chatbot == "copilot":
+            # Copilot uses WSS: violations are signalled by connection kill (no HTTP status).
+            if cat != "clean":
+                assert rec["outcome"] in ("blocked-by-gw", "network-error"), (
+                    f"Copilot violation prompt ({cat}) expected block, "
+                    f"got outcome={rec['outcome']} [employee={eid}]"
+                )
+            else:
+                assert rec["outcome"] == "sent", (
+                    f"Copilot clean prompt expected sent, "
+                    f"got outcome={rec['outcome']} [employee={eid}]"
+                )
         else:
-            assert status == 200, (
-                f"clean prompt expected 200, got {status} "
-                f"[employee={eid} outcome={rec['outcome']}]"
-            )
+            # HTTP chatbots: DLP addon returns 403 / 200 directly.
+            if cat != "clean":
+                assert status == 403, (
+                    f"violation prompt ({cat}) expected 403, got {status} "
+                    f"[chatbot={chatbot} employee={eid} outcome={rec['outcome']}]"
+                )
+            else:
+                assert status == 200, (
+                    f"clean prompt expected 200, got {status} "
+                    f"[chatbot={chatbot} employee={eid} outcome={rec['outcome']}]"
+                )
+
+    # Every chatbot must appear in the log at least once.
+    expected_chatbots = {"anthropic", "openai", "google", "xai", "deepseek", "perplexity", "copilot"}
+    seen_chatbots = {rec["target_chatbot"] for rec in records}
+    missing = expected_chatbots - seen_chatbots
+    assert not missing, (
+        f"chatbots not seen in run: {missing}. "
+        f"Increase employees or duration if this flakes."
+    )
 
     # Loose lower-bound: at least 30% of the theoretical maximum
-    expected = duration * rate * employees  # ~100
+    expected = duration * rate * employees  # ~140
     assert len(records) >= expected * 0.3, (
         f"too few records: {len(records)} (expected ≥ {int(expected * 0.3)} "
         f"from {employees} employees × {rate}/s × {duration}s)"

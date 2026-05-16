@@ -65,9 +65,7 @@ def pick_prompt(
     rng: random.Random,
 ) -> tuple[str, Category]:
     if rng.random() < violation_ratio:
-        dept_weights = DEPT_VIOLATION_WEIGHTS.get(
-            department, DEPT_VIOLATION_WEIGHTS["default"]
-        )
+        dept_weights = DEPT_VIOLATION_WEIGHTS.get(department, DEPT_VIOLATION_WEIGHTS["default"])
         # Filter to categories that exist in this corpus
         available = {k: v for k, v in dept_weights.items() if k in corpus}
         if not available:
