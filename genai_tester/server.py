@@ -12,6 +12,8 @@ import aiohttp
 from aiohttp import web
 from cryptography.hazmat.primitives import serialization
 
+from typing import Any
+
 from genai_tester.certs import generate_hostname_cert, load_ca, load_ssl_context_server
 from genai_tester.models import ServerConfig
 
@@ -239,8 +241,19 @@ async def handle_health(request: web.Request) -> web.Response:
     return web.Response(status=200, text="ok")
 
 
+@web.middleware
+async def _log_request(request: web.Request, handler: Any) -> web.StreamResponse:
+    print(
+        f"[req] {request.method} {request.path!r}  host={request.headers.get('Host', '-')}",
+        flush=True,
+    )
+    response = await handler(request)
+    print(f"[res] {response.status}", flush=True)
+    return response
+
+
 def build_app() -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[_log_request])
 
     # --- Exact paths (registered first to take priority) ---
     app.router.add_post("/backend-api/conversation", handle_chatgpt)
