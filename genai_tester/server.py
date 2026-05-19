@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import contextlib
 import json
+import ssl
+import tempfile
 import time
 import uuid
+from pathlib import Path
 
 import aiohttp
 from aiohttp import web
+from cryptography.hazmat.primitives import serialization
 
-from genai_tester.certs import load_ssl_context_server
+from genai_tester.certs import generate_hostname_cert, load_ca, load_ssl_context_server
 from genai_tester.models import ServerConfig
 
 
@@ -29,7 +33,7 @@ def _openai_response(model: str = "gpt-4o") -> dict:
     }
 
 
-# matches chatgpt_parser in nbnbnb.C
+# matches chatgpt_parser in parsers_is_parsers.C
 async def handle_chatgpt(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -38,7 +42,7 @@ async def handle_chatgpt(request: web.Request) -> web.Response:
     )
 
 
-# matches chatgpt file upload parser in nbnbnb.C
+# matches chatgpt file upload parser in parsers_is_parsers.C
 async def handle_chatgpt_upload(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -47,7 +51,7 @@ async def handle_chatgpt_upload(request: web.Request) -> web.Response:
     )
 
 
-# matches claude file parser in nbnbnb.C
+# matches claude file parser in parsers_is_parsers.C
 async def handle_claude_chat(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -64,7 +68,7 @@ async def handle_claude_chat(request: web.Request) -> web.Response:
     return web.Response(status=200, content_type="application/json", body=json.dumps(body))
 
 
-# matches claude file upload parser in nbnbnb.C
+# matches claude file upload parser in parsers_is_parsers.C
 async def handle_claude_upload(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -73,7 +77,7 @@ async def handle_claude_upload(request: web.Request) -> web.Response:
     )
 
 
-# matches copilot file parser in nbnbnb.C (WebSocket)
+# matches copilot file parser in parsers_is_parsers.C (WebSocket)
 async def handle_copilot_ws(request: web.Request) -> web.WebSocketResponse:
     ws = web.WebSocketResponse()
     await ws.prepare(request)
@@ -87,7 +91,7 @@ async def handle_copilot_ws(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
-# matches copilot file upload parser in nbnbnb.C
+# matches copilot file upload parser in parsers_is_parsers.C
 async def handle_copilot_upload(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -96,7 +100,7 @@ async def handle_copilot_upload(request: web.Request) -> web.Response:
     )
 
 
-# matches teams_copilot_parser in nbnbnb.C
+# matches teams_copilot_parser in parsers_is_parsers.C
 async def handle_teams_copilot(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -104,7 +108,7 @@ async def handle_teams_copilot(request: web.Request) -> web.Response:
     return web.Response(status=200, content_type="application/json", body=json.dumps(body))
 
 
-# matches teams_copilot_upload_parser in nbnbnb.C
+# matches teams_copilot_upload_parser in parsers_is_parsers.C
 async def handle_teams_upload(request: web.Request) -> web.Response:
     body = {
         "id": _uuid(),
@@ -114,7 +118,7 @@ async def handle_teams_upload(request: web.Request) -> web.Response:
     return web.Response(status=201, content_type="application/json", body=json.dumps(body))
 
 
-# matches deepseek file parser in nbnbnb.C
+# matches deepseek file parser in parsers_is_parsers.C
 async def handle_deepseek_chat(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -125,7 +129,7 @@ async def handle_deepseek_chat(request: web.Request) -> web.Response:
     )
 
 
-# matches deepseek file upload parser in nbnbnb.C
+# matches deepseek file upload parser in parsers_is_parsers.C
 async def handle_deepseek_upload(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -134,7 +138,7 @@ async def handle_deepseek_upload(request: web.Request) -> web.Response:
     )
 
 
-# matches duck file parser in nbnbnb.C
+# matches duck file parser in parsers_is_parsers.C
 async def handle_duck(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -145,7 +149,7 @@ async def handle_duck(request: web.Request) -> web.Response:
     )
 
 
-# matches gemini file parser in nbnbnb.C (CT text/plain, body is JSON array)
+# matches gemini file parser in parsers_is_parsers.C (CT text/plain, body is JSON array)
 async def handle_gemini(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -154,7 +158,7 @@ async def handle_gemini(request: web.Request) -> web.Response:
     )
 
 
-# matches gemini file upload parser in nbnbnb.C
+# matches gemini file upload parser in parsers_is_parsers.C
 async def handle_gemini_upload(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -163,7 +167,7 @@ async def handle_gemini_upload(request: web.Request) -> web.Response:
     )
 
 
-# matches grok file parser in nbnbnb.C
+# matches grok file parser in parsers_is_parsers.C
 async def handle_grok_chat(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -171,7 +175,7 @@ async def handle_grok_chat(request: web.Request) -> web.Response:
     return web.Response(status=200, content_type="application/json", body=json.dumps(body))
 
 
-# matches grok file upload parser in nbnbnb.C
+# matches grok file upload parser in parsers_is_parsers.C
 async def handle_grok_upload(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -180,7 +184,7 @@ async def handle_grok_upload(request: web.Request) -> web.Response:
     )
 
 
-# matches huggingface chat completions parser in nbnbnb.C
+# matches huggingface chat completions parser in parsers_is_parsers.C
 async def handle_hf_completions(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -191,7 +195,7 @@ async def handle_hf_completions(request: web.Request) -> web.Response:
     )
 
 
-# matches huggingface prompt parser and huggingface inputs parser in nbnbnb.C
+# matches huggingface prompt parser and huggingface inputs parser in parsers_is_parsers.C
 async def handle_hf_generic(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -200,7 +204,7 @@ async def handle_hf_generic(request: web.Request) -> web.Response:
     )
 
 
-# matches lovable file parser in nbnbnb.C
+# matches lovable file parser in parsers_is_parsers.C
 async def handle_lovable(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -211,7 +215,7 @@ async def handle_lovable(request: web.Request) -> web.Response:
     )
 
 
-# matches perplexity file parser in nbnbnb.C
+# matches perplexity file parser in parsers_is_parsers.C
 async def handle_perplexity_chat(request: web.Request) -> web.Response:
     with contextlib.suppress(Exception):
         await request.json()
@@ -222,7 +226,7 @@ async def handle_perplexity_chat(request: web.Request) -> web.Response:
     )
 
 
-# matches perplexity file upload parser in nbnbnb.C (S3 bucket path)
+# matches perplexity file upload parser in parsers_is_parsers.C (S3 bucket path)
 async def handle_perplexity_upload(request: web.Request) -> web.Response:
     return web.Response(
         status=200,
@@ -292,7 +296,52 @@ def build_app() -> web.Application:
     return app
 
 
+def build_sni_ssl_context(cert_file: str, key_file: str) -> ssl.SSLContext:
+    """
+    Build an SSL context with an SNI callback that issues per-hostname certificates.
+
+    When Checkpoint (or any HTTPS-inspection gateway) connects to the server it sends
+    the target hostname via SNI.  We generate a cert whose CN and SAN both equal that
+    hostname, signed by the lab CA.  The gateway then sees a 'proper' cert and
+    re-issues a matching cert to the client — fixing the hostname-mismatch error that
+    occurs when the gateway copies our generic CN='GenAI-Tester-Server' cert.
+    """
+    cert_dir = Path(cert_file).parent
+    ca_key, ca_cert = load_ca(cert_dir)
+
+    # Temp dir holds per-hostname PEM files for the lifetime of the server process.
+    tmp_dir = Path(tempfile.mkdtemp(prefix="genai-tester-sni-"))
+    cert_cache: dict[str, ssl.SSLContext] = {}
+
+    def _sni_callback(ssl_sock: ssl.SSLObject, server_name: str | None, _ctx: ssl.SSLContext) -> None:
+        if not server_name:
+            return
+        if server_name not in cert_cache:
+            host_key, host_cert = generate_hostname_cert(server_name, ca_key, ca_cert)
+            cert_path = tmp_dir / f"{server_name}.pem"
+            key_path = tmp_dir / f"{server_name}.key"
+            cert_path.write_bytes(host_cert.public_bytes(serialization.Encoding.PEM))
+            key_path.write_bytes(
+                host_key.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.TraditionalOpenSSL,
+                    serialization.NoEncryption(),
+                )
+            )
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+            ctx.load_cert_chain(str(cert_path), str(key_path))
+            cert_cache[server_name] = ctx
+            print(f"[sni] issued cert for {server_name}", flush=True)
+
+        ssl_sock.context = cert_cache[server_name]
+
+    base_ctx = load_ssl_context_server(cert_file, key_file)
+    base_ctx.set_servername_callback(_sni_callback)
+    return base_ctx
+
+
 def run_server(config: ServerConfig) -> None:
-    ssl_ctx = load_ssl_context_server(config.cert_file, config.key_file)
+    ssl_ctx = build_sni_ssl_context(config.cert_file, config.key_file)
     app = build_app()
     web.run_app(app, host=config.host, port=config.port, ssl_context=ssl_ctx)

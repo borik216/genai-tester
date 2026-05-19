@@ -156,6 +156,46 @@ def _write_key(path: Path, key: rsa.RSAPrivateKey) -> None:
         os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
 
 
+def load_ca(cert_dir: Path = CERT_DIR) -> tuple[rsa.RSAPrivateKey, x509.Certificate]:
+    """Load the CA key and cert from disk for dynamic cert issuance."""
+    ca_key: rsa.RSAPrivateKey = serialization.load_pem_private_key(  # type: ignore[assignment]
+        (cert_dir / "ca.key").read_bytes(), password=None
+    )
+    ca_cert = x509.load_pem_x509_certificate((cert_dir / "ca.pem").read_bytes())
+    return ca_key, ca_cert
+
+
+def generate_hostname_cert(
+    hostname: str,
+    ca_key: rsa.RSAPrivateKey,
+    ca_cert: x509.Certificate,
+) -> tuple[rsa.RSAPrivateKey, x509.Certificate]:
+    """Issue a certificate valid for exactly one hostname, signed by the lab CA."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    now = datetime.now(tz=UTC)
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, hostname)])
+    san = x509.SubjectAlternativeName([x509.DNSName(hostname)])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(ca_cert.subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now)
+        .not_valid_after(now + timedelta(days=365))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(san, critical=False)
+        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()),
+            critical=False,
+        )
+        .sign(ca_key, hashes.SHA256())
+    )
+    return key, cert
+
+
 def load_ssl_context_server(cert_file: str, key_file: str) -> ssl.SSLContext:
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
