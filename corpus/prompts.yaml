@@ -1,63 +1,120 @@
 categories:
 
-  clean:
-    - "What is the capital of France?"
-    - "Summarize the key features of Python 3.12."
-    - "Explain the difference between REST and GraphQL APIs."
-    - "What are best practices for conducting a code review?"
-    - "Write a haiku about distributed systems."
+  credentials:
+    - "My AWS access key is AKIAIOSFODNN7EXAMPLE and the secret is wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY. How do I rotate it?"
+    - "GitHub token ghp_FakeTokenABCDEFGHIJKLMNOPQRSTUVWXYZ01 was committed to main. What should I do?"
+    - "Bearer token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.FAKEPAYLOAD.FAKESIG — explain why this is risky."
+    - "Database password is Tr0ub4dor&3 for user admin on prod-db.internal. Is this safe?"
+    - "Here is an SSH key: -----BEGIN RSA PRIVATE KEY----- MIIEpAIBAAKCAQEAFAKEKEYDATA -----END RSA PRIVATE KEY-----"
+
+  pci_credit_cards:
+    - "Customer paid with Visa card 4111 1111 1111 1111, expiry 12/27, CVV 123. Please create a receipt."
+    - "Process refund for Mastercard 5555 5555 5555 4444 belonging to John Smith."
+    - "Amex card 3782 822463 10005 was used for invoice INV-10422."
+    - "Discover card number 6011 1111 1111 1117 failed authorization."
+    - "Store this billing note: card 4000-0000-0000-0002, exp 08/29, zip 10001."
 
   pii:
-    - "My employee John Smith (SSN 123-45-6789) needs a leave-of-absence form. Please draft one."
-    - "Update the health record for Jane Doe, DOB 1981-03-22, MRN 4471829, address 14 Elm St, Springfield IL."
-    - "Draft an offer letter for candidate Michael Johnson, phone 555-867-5309, email m.johnson@example-corp.internal."
-    - "Process termination paperwork for employee ID 88321, Sarah O'Brien, salary $94,500, department HR."
-    - "The patient record shows: Alice Brown, Medicare ID 1EG4-TE5-MK72, diagnosis hypertension, prescribing Dr. Reyes."
+    - "Create a profile for Jane Doe, DOB 1981-03-22, address 14 Elm St, Springfield IL."
+    - "Patient Alice Brown, Medicare ID 1EG4-TE5-MK72, diagnosis hypertension, needs a summary."
+    - "Update customer Michael Johnson, phone 555-867-5309, email m.johnson@example-corp.internal."
+    - "Employee Sarah O'Brien lives at 221B Baker Street, London, and earns $94,500."
+    - "Please summarize this record: David Cohen, Israel ID 123456782, phone +972-54-123-4567."
 
-  credential:
-    - "My AWS key is AKIAIOSFODNN7EXAMPLE with secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY — how do I rotate it?"
-    - "The production database password is Tr0ub4dor&3 — is it strong enough and how do I store it safely?"
-    - "Bearer token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.FAKEPAYLOAD.FAKESIG — explain the structure."
-    - "Our SSH private key starts: -----BEGIN RSA PRIVATE KEY----- MIIEpAIBAAKCAQEA... How do I restrict access?"
-    - "GitHub PAT ghp_FakeTokenABCDEFGHIJKLMNOPQRSTUVWXYZ01 keeps expiring — should I use fine-grained tokens?"
+  employee_names:
+    - "Draft a performance review for employee John Smith in the engineering department."
+    - "Prepare termination paperwork for Sarah O'Brien from HR."
+    - "Summarize promotion feedback for Michael Johnson, senior backend developer."
+    - "Create an internal transfer note for Jane Doe from Finance to Operations."
+    - "Write a manager update about Alice Brown's missed deadlines."
 
-  source_with_secret:
+  employee_email_addresses:
+    - "Send onboarding instructions to john.smith@company.internal."
+    - "Prepare an HR warning letter for sarah.obrien@company.internal."
+    - "Forward the payroll correction to jane.doe@corp.example."
+    - "Michael Johnson's employee email is michael.johnson@company.internal. Add him to the escalation list."
+    - "Alice Brown can be reached at alice.brown@enterprise.local for the incident review."
+
+  us_employer_identification_number:
+    - "Acme Payroll LLC has EIN 12-3456789. Prepare a vendor tax profile."
+    - "Update the contractor file for company EIN 98-7654321."
+    - "The W-9 form lists Employer Identification Number 45-6789123."
+    - "Please validate the supplier record with EIN 23-4567890."
+    - "Our subsidiary tax ID is 34-5678901. Draft a compliance note."
+
+  us_social_security_numbers:
+    - "John Smith's SSN is 123-45-6789. Draft a leave-of-absence form."
+    - "Employee onboarding record: Jane Doe, SSN 078-05-1120, start date Monday."
+    - "Update payroll for Michael Johnson, Social Security Number 219-09-9999."
+    - "Candidate background check includes SSN 111-22-3333."
+    - "Benefits enrollment for Sarah O'Brien uses SSN 987-65-4320."
+
+  email_address:
+    - "Please contact the customer at customer.test@example.com."
+    - "Send the invoice to billing@acme-example.com."
+    - "The user's recovery email is jane.doe@example.org."
+    - "Add support.alias@corp.internal to the escalation thread."
+    - "Notify admin@test-company.local about the outage."
+
+  phone_number:
+    - "Call John Smith at 555-867-5309 about the renewal."
+    - "Customer callback number is +1-212-555-0147."
+    - "Israeli contact number: +972-54-123-4567."
+    - "UK mobile number: +44 7700 900123."
+    - "Emergency contact phone is (415) 555-2671."
+
+  israel_id:
+    - "David Cohen's Israel ID is 123456782. Create an onboarding record."
+    - "Update benefits for Yael Levi, Israeli ID 039123456."
+    - "Customer verification: Israel ID 987654320."
+    - "Employee identity check includes TZ number 314159265."
+    - "Account holder Moshe Amir provided Israeli identity number 123123123."
+
+  uk_national_insurance_number:
+    - "Employee record: Alice Brown, National Insurance Number QQ123456C."
+    - "Update payroll for UK worker James Wilson, NINO AB123456D."
+    - "Benefits form includes NI number JZ987654A."
+    - "Contractor onboarding: UK National Insurance Number CE123456B."
+    - "Please validate employee record with NINO QQ987654C."
+
+  source_code:
     - |
-      Review this Python snippet for issues:
-      db_pass = 'hunter2'
-      conn = psycopg2.connect(host='prod-db.example.com', password=db_pass)
+      Review this Python code:
+      import requests
+
+      api_key = "sk-fake-openai-key-1234567890abcdef"
+      headers = {"Authorization": f"Bearer {api_key}"}
+      requests.get("https://api.example.com/data", headers=headers)
+
     - |
-      Why does this CI job fail?
-      api_key = 'sk-fake-openai-key-1234567890abcdef'
-      openai.api_key = api_key
-      response = openai.ChatCompletion.create(model='gpt-4', messages=[...])
+      Is this Django config safe?
+      SECRET_KEY = "fake-django-secret-key-123"
+      DATABASES = {
+        "default": {
+          "ENGINE": "django.db.backends.postgresql",
+          "USER": "admin",
+          "PASSWORD": "Tr0ub4dor&3",
+          "HOST": "prod-db.internal"
+        }
+      }
+
     - |
-      Debug our Django config:
-      SECRET_KEY = 'django-insecure-abc123xyz!@#$%^&*()'
-      DATABASES = {'default': {'PASSWORD': 'ProdPass!42'}}
-    - |
-      Our Terraform has credentials in plain text — help refactor:
+      Check this Terraform:
       provider "aws" {
         access_key = "AKIAIOSFODNN7EXAMPLE"
         secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
         region     = "us-east-1"
       }
+
     - |
-      The deploy script exports secrets directly — is this safe?
-      export MYSQL_ROOT_PASSWORD=P@ssw0rd!Prod
+      Review this Node.js snippet:
+      const token = "ghp_FakeTokenABCDEFGHIJKLMNOPQRSTUVWXYZ01";
+      fetch("https://api.github.com/user", {
+        headers: { Authorization: `token ${token}` }
+      });
+
+    - |
+      Debug this shell script:
+      export MYSQL_ROOT_PASSWORD=SuperSecret123
       export REDIS_AUTH=authtoken_prod_12345
-      export STRIPE_SECRET_KEY=STRIPE_SK_PLACEHOLDER
-
-  internal_codename:
-    - "Summarize the Q3 milestones for Project NIGHTHAWK and flag any at-risk deliverables."
-    - "Draft a press-release stub for Operation CERULEAN TIDE ahead of the public announcement."
-    - "What are the top three schedule risks for Codename SILVERBACK if we accelerate the launch by six weeks?"
-    - "Create a status update for Initiative ECHO-7 stakeholders — focus on budget burn and timeline."
-    - "Compare Project HAMMERHEAD's feature set against the two closest competitors and summarize gaps."
-
-  customer_data:
-    - "Acme Corp (contract #CNT-20231102) renewed at $2.4M ARR — update the CRM note and schedule an EBR."
-    - "GloboChem's CFO Linda Park approved PO #PO-88712 for $450,000. Draft the order confirmation email."
-    - "Westbridge Medical (account ID 3391) is $312,000 overdue since 2024-11-01 — draft a final-notice letter."
-    - "Contoso Ltd's renewal probability score dropped to 12% — summarize the top churn factors for the AE."
-    - "TechNova's SLA breach rate is 34% this quarter — prepare a two-slide executive summary for the QBR."
+      curl -H "Authorization: Bearer fake-bearer-token-abc123" https://api.example.com

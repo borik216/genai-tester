@@ -33,7 +33,19 @@ Chatbot = Literal[
 FlowType = Literal["chat", "file_upload"]
 
 Category = Literal[
-    "clean", "pii", "credential", "source_with_secret", "internal_codename", "customer_data"
+    "clean",
+    "credentials",
+    "pci_credit_cards",
+    "pii",
+    "employee_names",
+    "employee_email_addresses",
+    "us_employer_identification_number",
+    "us_social_security_numbers",
+    "email_address",
+    "phone_number",
+    "israel_id",
+    "uk_national_insurance_number",
+    "source_code",
 ]
 
 

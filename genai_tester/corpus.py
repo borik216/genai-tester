@@ -9,39 +9,52 @@ from genai_tester.models import Category
 
 CorpusData = dict[str, list[str]]
 
-REQUIRED_CATEGORIES: frozenset[str] = frozenset(
-    {"clean", "pii", "credential", "source_with_secret", "internal_codename", "customer_data"}
-)
+REQUIRED_CATEGORIES: frozenset[str] = frozenset({
+    "credentials",
+    "pci_credit_cards",
+    "pii",
+    "employee_names",
+    "employee_email_addresses",
+    "us_employer_identification_number",
+    "us_social_security_numbers",
+    "email_address",
+    "phone_number",
+    "israel_id",
+    "uk_national_insurance_number",
+    "source_code",
+})
 
 # Per-department weights over violation categories only (clean handled separately).
 # Values are relative; they are normalised before sampling.
 DEPT_VIOLATION_WEIGHTS: dict[str, dict[str, float]] = {
     "engineering": {
-        "source_with_secret": 0.50,
-        "internal_codename": 0.30,
-        "credential": 0.10,
-        "pii": 0.10,
+        "source_code": 0.50,
+        "credentials": 0.30,
+        "employee_email_addresses": 0.10,
+        "email_address": 0.10,
     },
     "hr": {
-        "pii": 0.60,
-        "customer_data": 0.30,
-        "credential": 0.10,
+        "pii": 0.30,
+        "employee_names": 0.25,
+        "employee_email_addresses": 0.20,
+        "us_social_security_numbers": 0.25,
     },
     "finance": {
-        "customer_data": 0.50,
-        "credential": 0.20,
-        "pii": 0.20,
-        "internal_codename": 0.10,
+        "pci_credit_cards": 0.35,
+        "us_social_security_numbers": 0.25,
+        "us_employer_identification_number": 0.20,
+        "credentials": 0.20,
     },
     "legal": {
-        "customer_data": 0.40,
-        "internal_codename": 0.40,
-        "pii": 0.20,
+        "pii": 0.30,
+        "us_social_security_numbers": 0.25,
+        "israel_id": 0.25,
+        "uk_national_insurance_number": 0.20,
     },
     "default": {
         "pii": 0.34,
-        "credential": 0.33,
-        "internal_codename": 0.33,
+        "credentials": 0.33,
+        "pci_credit_cards": 0.33,
     },
 }
 
@@ -64,7 +77,7 @@ def pick_prompt(
     violation_ratio: float,
     rng: random.Random,
 ) -> tuple[str, Category]:
-    if rng.random() < violation_ratio:
+    if rng.random() < violation_ratio or "clean" not in corpus:
         dept_weights = DEPT_VIOLATION_WEIGHTS.get(department, DEPT_VIOLATION_WEIGHTS["default"])
         # Filter to categories that exist in this corpus
         available = {k: v for k, v in dept_weights.items() if k in corpus}
