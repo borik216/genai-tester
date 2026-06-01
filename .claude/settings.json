@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(where python *)",
+      "Bash(py --list)",
+      "Bash(ls /home/genai/.venv/bin/ 2>/dev/null | head -10 || ls /home/genai/genai-tester/.venv/bin/ 2>/dev/null | head -10)",
+      "Read(//home/genai/.venv/**)",
+      "Bash(find /home/genai -name \"pytest\" 2>/dev/null | head -5)",
+      "Read(//home/genai/**)",
+      "Bash(/home/genai/genai-tester/.venv/bin/pytest tests/ -v --ignore=tests/test_local_e2e.py)",
+      "Bash(/home/genai/genai-tester/.venv/bin/python -c \"from genai_tester import cli, corpus, employee, models; print\\('imports OK'\\)\")",
+      "Bash(/home/genai/genai-tester/.venv/bin/ruff check *)",
+      "Bash(/home/genai/genai-tester/.venv/bin/python -m genai_tester run --help)",
+      "Bash(/home/genai/genai-tester/.venv/bin/python -m genai_tester run --rate 4.0 --rate-per-employee 2.0)",
+      "Bash(openssl x509 *)"
+    ]
+  }
+}

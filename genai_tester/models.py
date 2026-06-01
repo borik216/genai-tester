@@ -52,10 +52,11 @@ Category = Literal[
 @dataclass(frozen=True)
 class RunConfig:
     employees: int = 5
-    departments: dict[str, int] = field(default_factory=lambda: {"default": 5})
     rate_per_employee: float = 1 / 60
     duration: float = 300.0
+    total_requests: int | None = None
     violation_ratio: float = 0.3
+    violation_weights: dict[str, float] | None = None
     insecure_local: bool = False
     server_host: str = "localhost"
     server_port: int = 443
@@ -78,7 +79,6 @@ class ServerConfig:
 class LogRecord:
     timestamp: str
     employee_id: str
-    department: str
     target_chatbot: Chatbot
     flow_type: FlowType
     prompt_category: Category

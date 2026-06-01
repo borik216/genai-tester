@@ -1,0 +1,8 @@
+employees: 1
+rate: 1.0           # total req/s across all employees (was --rate-per-employee 6.0 × 4)
+total_requests: 5 
+violation_ratio: 1.0
+ca_cert: /home/genai/genai-tester/certs/gw_ca.pem
+log_file: run.jsonl
+violation_categories:
+  credentials: 1.0

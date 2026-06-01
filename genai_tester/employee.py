@@ -419,25 +419,39 @@ async def send_http(
         return None, "network-error", str(exc)[:120]
 
 
+@dataclass
+class _Budget:
+    limit: int | None
+    _used: int = field(default=0, init=False)
+    exhausted: asyncio.Event = field(default_factory=asyncio.Event, init=False)
+
+    def charge(self) -> None:
+        if self.limit is None:
+            return
+        self._used += 1
+        if self._used >= self.limit:
+            self.exhausted.set()
+
+
 async def employee_task(
     employee_id: str,
-    department: str,
     config: RunConfig,
     corpus: CorpusData,
     client: httpx.AsyncClient,
     ws_session: aiohttp.ClientSession,
     writer: AsyncJSONLWriter,
     deadline: float,
+    budget: _Budget,
     rng: random.Random,
 ) -> None:
     while True:
         interval = rng.expovariate(config.rate_per_employee)
         await asyncio.sleep(interval)
-        if time.monotonic() >= deadline:
+        if time.monotonic() >= deadline or budget.exhausted.is_set():
             break
 
         spec: ServiceSpec = rng.choice(ALL_SPECS)
-        prompt, category = pick_prompt(corpus, department, config.violation_ratio, rng)
+        prompt, category = pick_prompt(corpus, config.violation_ratio, rng, config.violation_weights)
         prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
         path_vars = build_path_vars(spec, rng)
         url = build_url(spec, config, path_vars)
@@ -458,7 +472,6 @@ async def employee_task(
         record = LogRecord(
             timestamp=datetime.now(tz=UTC).isoformat(),
             employee_id=employee_id,
-            department=department,
             target_chatbot=spec.key,  # type: ignore[arg-type]
             flow_type=spec.flow_type,
             prompt_category=category,
@@ -468,6 +481,7 @@ async def employee_task(
             response_summary=response_summary,
         )
         await writer.write(record)
+        budget.charge()
 
 
 async def run_employees(
@@ -489,27 +503,27 @@ async def run_employees(
 
     async with httpx.AsyncClient(**client_kwargs) as client, aiohttp.ClientSession() as ws_session:
         deadline = time.monotonic() + config.duration
+        budget = _Budget(limit=config.total_requests)
         tasks: list[asyncio.Task[None]] = []
 
-        for dept, count in config.departments.items():
-            for i in range(count):
-                employee_id = f"{dept}-{i + 1:02d}"
-                rng = random.Random(random.randbytes(8))
-                task = asyncio.create_task(
-                    employee_task(
-                        employee_id,
-                        dept,
-                        config,
-                        corpus,
-                        client,
-                        ws_session,
-                        writer,
-                        deadline,
-                        rng,
-                    ),
-                    name=employee_id,
-                )
-                tasks.append(task)
+        for i in range(config.employees):
+            employee_id = f"emp-{i + 1:03d}"
+            rng = random.Random(random.randbytes(8))
+            task = asyncio.create_task(
+                employee_task(
+                    employee_id,
+                    config,
+                    corpus,
+                    client,
+                    ws_session,
+                    writer,
+                    deadline,
+                    budget,
+                    rng,
+                ),
+                name=employee_id,
+            )
+            tasks.append(task)
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for task, result in zip(tasks, results, strict=True):
